@@ -478,16 +478,16 @@
 }
 
 .layout-race {
-  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.9fr) minmax(280px, 0.9fr);
-  grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr) minmax(160px, 0.72fr);
+  grid-template-columns: minmax(0, 1.58fr) minmax(280px, 0.92fr) minmax(280px, 0.92fr);
+  grid-template-rows: minmax(0, 0.86fr) minmax(300px, 1.08fr) minmax(130px, 0.46fr);
 }
 
 .layout-race .primary-feed {
-  grid-row: span 2;
+  grid-row: span 3;
 }
 
-.layout-race .viewer-window[data-index='5'] {
-  grid-column: 1 / -1;
+.layout-race .viewer-window[data-index='3'] {
+  grid-column: 2 / 4;
 }
 
 .layout-grid {
@@ -891,6 +891,12 @@
   line-height: 1;
 }
 
+.gear-box small {
+  color: #9ca3af;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
 .pedal-stack {
   position: absolute;
   left: 12px;
@@ -920,6 +926,10 @@
   background: #ed1c24;
 }
 
+.pedal-stack label .drs-open {
+  background: #f5c84b;
+}
+
 @keyframes road-move {
   from {
     background-position: 0 0, 0 0, 0 0;
@@ -931,10 +941,12 @@
 }
 
 .timing-panel {
-  display: grid;
-  gap: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   height: 100%;
   padding: 10px;
+  overflow: auto;
   font-family: var(--font-mono);
   background:
     linear-gradient(90deg, rgba(245, 200, 75, 0.07) 1px, transparent 1px),
@@ -942,35 +954,221 @@
   background-size: 80px 100%;
 }
 
-.timing-head,
-.timing-row {
+.telemetry-source {
   display: grid;
-  grid-template-columns: 30px minmax(48px, 1fr) 58px 64px 36px;
-  gap: 5px;
-  align-items: center;
-  min-height: 30px;
-  padding: 0 7px;
+  gap: 2px;
+  padding: 4px 2px 8px;
 }
 
-.timing-head {
+.telemetry-source span {
   color: #9ca3af;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.telemetry-source strong {
+  color: #f4f4f5;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.telemetry-row {
+  display: grid;
+  grid-template-columns: 34px minmax(46px, 0.7fr) 45px 48px 48px minmax(82px, 1fr) 54px 54px 36px;
+  gap: 5px;
+  align-items: center;
+  min-height: 44px;
+  min-width: 520px;
+  padding: 4px 6px;
+  border: 1px solid #20242d;
+  border-left: 3px solid var(--team);
+  border-radius: 5px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--team) 14%, #090b10), #090b10 58%);
+  color: #d4d4d8;
   font-size: 10px;
 }
 
-.timing-row {
-  border-left: 2px solid rgba(54, 163, 255, 0.56);
-  background: rgba(255, 255, 255, 0.048);
-  color: #e4e4e7;
-  font-size: clamp(10px, 0.86vw, 12px);
+.position-cell,
+.driver-cell,
+.drs-cell,
+.rpm-cell,
+.speed-cell,
+.lap-cell,
+.gap-cell,
+.tyre {
+  min-width: 0;
 }
 
-.timing-row strong {
+.position-cell strong,
+.driver-cell strong,
+.speed-cell strong,
+.lap-cell strong,
+.gap-cell strong,
+.tyre strong {
   color: #fff;
 }
 
-.timing-row.pulse {
-  border-left-color: #ed1c24;
-  background: rgba(237, 28, 36, 0.18);
+.position-cell {
+  display: grid;
+  place-items: center;
+  gap: 1px;
+}
+
+.position-cell strong {
+  font-size: 15px;
+}
+
+.delta {
+  color: #9ca3af;
+  font-size: 9px;
+}
+
+.delta.up {
+  color: #00d084;
+}
+
+.delta.down {
+  color: #ed1c24;
+}
+
+.driver-cell strong {
+  display: block;
+  font-size: 14px;
+}
+
+.driver-cell span,
+.drs-cell span,
+.rpm-cell span,
+.speed-cell span,
+.lap-cell span,
+.gap-cell span,
+.tyre span {
+  color: #9ca3af;
+  font-size: 9px;
+}
+
+.drs-cell {
+  display: grid;
+  place-items: center;
+  min-height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.drs-cell.open {
+  border-color: rgba(245, 200, 75, 0.68);
+  background: rgba(245, 200, 75, 0.14);
+}
+
+.drs-cell strong {
+  color: #f5c84b;
+  font-size: 9px;
+}
+
+.rpm-cell {
+  display: grid;
+  place-items: center;
+  gap: 1px;
+}
+
+.mini-rpm {
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, #090a0d 0 50%, transparent 51%),
+    conic-gradient(#ed1c24 var(--rpm), rgba(255, 255, 255, 0.15) 0);
+}
+
+.mini-rpm strong {
+  color: #fff;
+  font-size: 13px;
+}
+
+.speed-cell strong {
+  display: block;
+  font-size: 16px;
+}
+
+.lap-cell,
+.gap-cell {
+  display: grid;
+  gap: 1px;
+}
+
+.lap-cell strong,
+.gap-cell strong {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sector-cells {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+}
+
+.sector-cells i {
+  height: 12px;
+  border-radius: 2px;
+  background: #3f4654;
+}
+
+.sector-cells .purple {
+  background: #b84dff;
+}
+
+.sector-cells .green {
+  background: #00d084;
+}
+
+.sector-cells .yellow {
+  background: #f5c84b;
+}
+
+.sector-cells .neutral {
+  background: #4b5563;
+}
+
+.tyre {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #090a0d;
+}
+
+.tyre strong {
+  line-height: 0.9;
+}
+
+.tyre-s {
+  border-color: #ed1c24;
+}
+
+.tyre-m {
+  border-color: #f5c84b;
+}
+
+.tyre-h {
+  border-color: #d4d4d8;
+}
+
+.tyre-i {
+  border-color: #00d084;
+}
+
+.tyre-w {
+  border-color: #36a3ff;
 }
 
 .track-panel {
@@ -1294,6 +1492,11 @@
 
   .layout-race .primary-feed {
     grid-column: auto;
+    grid-row: auto;
+  }
+
+  .layout-race .viewer-window[data-index='3'] {
+    grid-column: auto;
   }
 }
 
@@ -1327,12 +1530,6 @@
 
   .buffer-bars {
     display: none;
-  }
-
-  .timing-head,
-  .timing-row {
-    grid-template-columns: 28px minmax(42px, 1fr) 52px 58px 34px;
-    padding: 0 5px;
   }
 
   .pedal-stack {

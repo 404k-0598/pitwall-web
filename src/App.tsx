@@ -44,6 +44,7 @@ type FeedSource = {
   locked?: boolean
   driver?: string
   car?: string
+  driverNumber?: number
 }
 
 type SourceDraft = {
@@ -62,14 +63,148 @@ type LayoutOption = {
   icon: ComponentType<{ size?: number; strokeWidth?: number }>
 }
 
-const storageKey = 'pitwall-web.sources.v2'
-const layoutKey = 'pitwall-web.layout.v2'
+type OpenF1CarData = {
+  date: string
+  driver_number: number
+  speed: number
+  throttle: number
+  brake: number
+  rpm: number
+  n_gear: number
+  drs: number
+}
+
+type TelemetryRow = {
+  pos: number
+  driverNumber: number
+  code: string
+  team: string
+  teamColor: string
+  delta: number
+  gap: string
+  interval: string
+  best: string
+  last: string
+  compound: 'S' | 'M' | 'H' | 'I' | 'W'
+  tyreAge: number
+  sectors: Array<'purple' | 'green' | 'yellow' | 'neutral'>
+  sample: OpenF1CarData
+}
+
+const storageKey = 'pitwall-web.sources.v3'
+const layoutKey = 'pitwall-web.layout.v3'
+const openF1SessionKey = 9165
+const openF1Window = '2023 Singapore GP Race - OpenF1 replay'
+
+const fallbackSample: OpenF1CarData = {
+  date: '2023-09-17T12:30:00.117000+00:00',
+  driver_number: 55,
+  speed: 129,
+  throttle: 80,
+  brake: 0,
+  rpm: 10041,
+  n_gear: 3,
+  drs: 0,
+}
+
+const timingSeed: Omit<TelemetryRow, 'sample'>[] = [
+  {
+    pos: 1,
+    driverNumber: 55,
+    code: 'SAI',
+    team: 'Ferrari',
+    teamColor: '#f91536',
+    delta: 0,
+    gap: 'LEADER',
+    interval: '+0.000',
+    best: '1:37.418',
+    last: '1:39.204',
+    compound: 'H',
+    tyreAge: 17,
+    sectors: ['green', 'green', 'neutral', 'green', 'yellow', 'neutral', 'green', 'neutral'],
+  },
+  {
+    pos: 2,
+    driverNumber: 4,
+    code: 'NOR',
+    team: 'McLaren',
+    teamColor: '#f58020',
+    delta: 1,
+    gap: '+0.812',
+    interval: '+0.812',
+    best: '1:37.612',
+    last: '1:39.417',
+    compound: 'H',
+    tyreAge: 17,
+    sectors: ['green', 'neutral', 'green', 'neutral', 'yellow', 'green', 'neutral', 'green'],
+  },
+  {
+    pos: 3,
+    driverNumber: 44,
+    code: 'HAM',
+    team: 'Mercedes',
+    teamColor: '#6cd3bf',
+    delta: 2,
+    gap: '+1.269',
+    interval: '+0.457',
+    best: '1:36.944',
+    last: '1:38.989',
+    compound: 'M',
+    tyreAge: 4,
+    sectors: ['purple', 'green', 'green', 'neutral', 'green', 'green', 'neutral', 'yellow'],
+  },
+  {
+    pos: 4,
+    driverNumber: 16,
+    code: 'LEC',
+    team: 'Ferrari',
+    teamColor: '#f91536',
+    delta: -1,
+    gap: '+2.903',
+    interval: '+1.634',
+    best: '1:37.512',
+    last: '1:39.766',
+    compound: 'H',
+    tyreAge: 17,
+    sectors: ['neutral', 'yellow', 'green', 'neutral', 'neutral', 'green', 'yellow', 'neutral'],
+  },
+  {
+    pos: 5,
+    driverNumber: 1,
+    code: 'VER',
+    team: 'Red Bull',
+    teamColor: '#3671c6',
+    delta: 6,
+    gap: '+5.221',
+    interval: '+2.318',
+    best: '1:36.575',
+    last: '1:38.518',
+    compound: 'M',
+    tyreAge: 4,
+    sectors: ['green', 'purple', 'green', 'green', 'neutral', 'green', 'green', 'neutral'],
+  },
+  {
+    pos: 6,
+    driverNumber: 63,
+    code: 'RUS',
+    team: 'Mercedes',
+    teamColor: '#6cd3bf',
+    delta: 0,
+    gap: '+7.904',
+    interval: '+2.683',
+    best: '1:36.611',
+    last: '1:38.790',
+    compound: 'M',
+    tyreAge: 4,
+    sectors: ['green', 'green', 'neutral', 'green', 'green', 'yellow', 'neutral', 'green'],
+  },
+]
 
 const defaultFeeds: FeedSource[] = [
   {
     id: 'race-feed',
-    title: 'Race Feed',
-    group: 'International',
+    title: 'International Feed',
+    group: openF1Window,
     kind: 'demo-race',
     url: '',
     color: '#ed1c24',
@@ -77,30 +212,32 @@ const defaultFeeds: FeedSource[] = [
     locked: true,
   },
   {
-    id: 'onboard-nova',
-    title: 'L. Nova Onboard',
+    id: 'onboard-sai',
+    title: 'SAI Onboard',
     group: 'Onboards',
     kind: 'demo-onboard',
     url: '',
-    color: '#00d084',
+    color: '#f91536',
     active: true,
-    driver: 'NOVA',
-    car: '16',
+    driver: 'SAI',
+    car: '55',
+    driverNumber: 55,
   },
   {
-    id: 'onboard-atlas',
-    title: 'K. Atlas Onboard',
+    id: 'onboard-ver',
+    title: 'VER Onboard',
     group: 'Onboards',
     kind: 'demo-onboard',
     url: '',
-    color: '#36a3ff',
+    color: '#3671c6',
     active: true,
-    driver: 'ATLAS',
-    car: '22',
+    driver: 'VER',
+    car: '1',
+    driverNumber: 1,
   },
   {
     id: 'live-timing',
-    title: 'Live Timing',
+    title: 'Telemetry Tower',
     group: 'Data',
     kind: 'timing',
     url: '',
@@ -176,6 +313,91 @@ function sourceNeedsUrl(kind: FeedKind) {
   return kind === 'hls' || kind === 'video' || kind === 'iframe'
 }
 
+function buildFallbackRows(index: number): TelemetryRow[] {
+  return timingSeed.map((driver, offset) => {
+    const speed = 225 + ((index * 9 + offset * 13) % 76)
+    const brake = (index + offset) % 8 === 0 ? 78 : 0
+    const throttle = brake > 0 ? 0 : 74 + ((index + offset * 5) % 26)
+    const rpm = 9100 + ((index * 431 + offset * 587) % 3300)
+    return {
+      ...driver,
+      sample: {
+        ...fallbackSample,
+        driver_number: driver.driverNumber,
+        speed,
+        throttle,
+        brake,
+        rpm,
+        n_gear: Math.min(8, Math.max(1, Math.round(speed / 42))),
+        drs: speed > 255 && brake === 0 ? 12 : 0,
+      },
+    }
+  })
+}
+
+function groupSamples(samples: OpenF1CarData[]) {
+  return samples.reduce<Record<number, OpenF1CarData[]>>((acc, sample) => {
+    acc[sample.driver_number] = acc[sample.driver_number] ?? []
+    acc[sample.driver_number].push(sample)
+    return acc
+  }, {})
+}
+
+function useOpenF1Replay() {
+  const [samples, setSamples] = useState<Record<number, OpenF1CarData[]>>({})
+  const [status, setStatus] = useState<'loading' | 'live' | 'fallback'>('loading')
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    const endpoint =
+      `https://api.openf1.org/v1/car_data?session_key=${openF1SessionKey}` +
+      '&date>=2023-09-17T12:30:00&date<=2023-09-17T12:30:12'
+
+    fetch(endpoint)
+      .then((response) => {
+        if (!response.ok) throw new Error(`OpenF1 ${response.status}`)
+        return response.json() as Promise<OpenF1CarData[]>
+      })
+      .then((payload) => {
+        if (cancelled) return
+        const grouped = groupSamples(payload)
+        setSamples(grouped)
+        setStatus(Object.keys(grouped).length > 0 ? 'live' : 'fallback')
+      })
+      .catch(() => {
+        if (!cancelled) setStatus('fallback')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((value) => value + 1), 420)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const rows = useMemo<TelemetryRow[]>(() => {
+    if (status !== 'live') return buildFallbackRows(tick)
+    return timingSeed.map((driver) => {
+      const driverSamples = samples[driver.driverNumber] ?? []
+      const sample = driverSamples[tick % Math.max(driverSamples.length, 1)] ?? {
+        ...fallbackSample,
+        driver_number: driver.driverNumber,
+      }
+      return { ...driver, sample }
+    })
+  }, [samples, status, tick])
+
+  return {
+    rows,
+    status,
+    replayTime: rows[0]?.sample.date ?? fallbackSample.date,
+  }
+}
+
 function App() {
   const [sources, setSources] = useState<FeedSource[]>(readSources)
   const [layout, setLayout] = useState<LayoutMode>(() => {
@@ -190,6 +412,7 @@ function App() {
   const [query, setQuery] = useState('')
   const [addOpen, setAddOpen] = useState(false)
   const [draft, setDraft] = useState<SourceDraft>(emptyDraft)
+  const telemetry = useOpenF1Replay()
 
   const activeSources = useMemo(() => sources.filter((source) => source.active), [sources])
   const focusedSource = useMemo(
@@ -292,7 +515,7 @@ function App() {
         </div>
         <button className="session-picker" type="button">
           <Cast size={16} />
-          <span>Grand Prix - Race</span>
+          <span>{openF1Window}</span>
           <ChevronDown size={15} />
         </button>
         <div className="title-actions">
@@ -304,8 +527,8 @@ function App() {
       <aside className="feed-sidebar" aria-label="Feed catalog">
         <section className="event-card">
           <div className="event-meta">
-            <span>LIVE SESSION</span>
-            <strong>Lap 46 / 58</strong>
+            <span>{telemetry.status === 'live' ? 'OPENF1 REPLAY' : 'LOCAL FALLBACK'}</span>
+            <strong>Lap 46 / 62</strong>
           </div>
           <div className="event-progress">
             <span style={{ width: '79%' }}></span>
@@ -315,6 +538,8 @@ function App() {
             <strong>{delay >= 0 ? '+' : ''}{delay.toFixed(1)}s</strong>
             <span>WINDOWS</span>
             <strong>{activeSources.length}</strong>
+            <span>TELEMETRY</span>
+            <strong>{telemetry.rows.length}</strong>
           </div>
         </section>
 
@@ -457,6 +682,9 @@ function App() {
               key={source.id}
               index={index}
               source={source}
+              telemetryRows={telemetry.rows}
+              telemetryStatus={telemetry.status}
+              replayTime={telemetry.replayTime}
               playing={playing}
               muted={muted}
               focused={source.id === focusedSource?.id}
@@ -571,6 +799,9 @@ function SessionClock() {
 function ViewerWindow({
   source,
   index,
+  telemetryRows,
+  telemetryStatus,
+  replayTime,
   playing,
   muted,
   focused,
@@ -578,6 +809,9 @@ function ViewerWindow({
 }: {
   source: FeedSource
   index: number
+  telemetryRows: TelemetryRow[]
+  telemetryStatus: 'loading' | 'live' | 'fallback'
+  replayTime: string
   playing: boolean
   muted: boolean
   focused: boolean
@@ -613,13 +847,13 @@ function ViewerWindow({
       </header>
       <div className="window-body">
         {source.kind === 'demo-race' ? (
-          <RaceFeed />
+          <RaceFeed rows={telemetryRows} replayTime={replayTime} />
         ) : source.kind === 'demo-onboard' ? (
-          <OnboardFeed source={source} />
+          <OnboardFeed source={source} row={telemetryRows.find((item) => item.driverNumber === source.driverNumber) ?? telemetryRows[0]} />
         ) : source.kind === 'timing' ? (
-          <TimingPanel />
+          <TimingPanel rows={telemetryRows} status={telemetryStatus} />
         ) : source.kind === 'track-map' ? (
-          <TrackMapPanel />
+          <TrackMapPanel rows={telemetryRows} />
         ) : source.kind === 'race-control' ? (
           <RaceControlPanel />
         ) : source.kind === 'race-trace' ? (
@@ -634,7 +868,7 @@ function ViewerWindow({
   )
 }
 
-function RaceFeed() {
+function RaceFeed({ rows, replayTime }: { rows: TelemetryRow[]; replayTime: string }) {
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
@@ -643,7 +877,8 @@ function RaceFeed() {
   }, [])
 
   const lap = 46 + Math.floor((tick % 24) / 12)
-  const phase = tick % 12
+  const leader = rows[0]
+  const second = rows[1]
 
   return (
     <div className="broadcast-feed">
@@ -657,40 +892,35 @@ function RaceFeed() {
         <span className="chase-car"></span>
       </div>
       <div className="feed-bug">
-        <strong>LIVE</strong>
-        <span>Race feed</span>
+        <strong>REPLAY</strong>
+        <span>{new Date(replayTime).toLocaleTimeString('en-US', { hour12: false })}</span>
       </div>
       <div className="lower-third">
         <div>
           <span>Leader</span>
-          <strong>NOVA</strong>
+          <strong>{leader?.code ?? 'SAI'}</strong>
         </div>
         <div>
           <span>Lap</span>
-          <strong>{lap}/58</strong>
+          <strong>{lap}/62</strong>
         </div>
         <div>
-          <span>Gap</span>
-          <strong>+{(1.214 + phase / 100).toFixed(3)}</strong>
+          <span>{second?.code ?? 'P2'} gap</span>
+          <strong>{second?.gap ?? '+0.812'}</strong>
         </div>
       </div>
     </div>
   )
 }
 
-function OnboardFeed({ source }: { source: FeedSource }) {
-  const [tick, setTick] = useState(0)
-
-  useEffect(() => {
-    const id = window.setInterval(() => setTick((value) => value + 1), 800)
-    return () => window.clearInterval(id)
-  }, [])
-
-  const phase = tick % 18
-  const speed = source.id === 'onboard-atlas' ? 221 + phase * 4 : 246 + phase * 3
-  const gear = source.id === 'onboard-atlas' ? 5 + (phase % 2) : 6 + (phase % 2)
-  const throttle = Math.min(96, 68 + phase * 2)
-  const brake = phase > 12 ? (phase - 12) * 12 : 0
+function OnboardFeed({ source, row }: { source: FeedSource; row?: TelemetryRow }) {
+  const sample = row?.sample ?? fallbackSample
+  const speed = Math.round(sample.speed)
+  const gear = sample.n_gear
+  const throttle = Math.max(0, Math.min(100, sample.throttle))
+  const brake = Math.max(0, Math.min(100, sample.brake))
+  const rpm = Math.round(sample.rpm)
+  const drsOpen = sample.drs >= 8
 
   return (
     <div className="onboard-feed">
@@ -701,7 +931,7 @@ function OnboardFeed({ source }: { source: FeedSource }) {
         <span className="wheel"></span>
       </div>
       <div className="driver-tag">
-        <strong>{source.driver ?? 'DRIVER'}</strong>
+        <strong>{row?.code ?? source.driver ?? 'DRIVER'}</strong>
         <span>CAR {source.car ?? '--'}</span>
       </div>
       <div className="speed-overlay">
@@ -712,6 +942,7 @@ function OnboardFeed({ source }: { source: FeedSource }) {
         <div className="gear-box">
           <span>GEAR</span>
           <strong>{gear}</strong>
+          <small>{rpm}</small>
         </div>
       </div>
       <div className="pedal-stack">
@@ -722,6 +953,10 @@ function OnboardFeed({ source }: { source: FeedSource }) {
         <label>
           <span>BRK</span>
           <i style={{ width: `${brake}%` }}></i>
+        </label>
+        <label>
+          <span>DRS</span>
+          <i className={drsOpen ? 'drs-open' : ''} style={{ width: drsOpen ? '100%' : '18%' }}></i>
         </label>
       </div>
     </div>
@@ -782,54 +1017,74 @@ function StreamPlayer({ source, playing, muted }: { source: FeedSource; playing:
   )
 }
 
-function TimingPanel() {
-  const [tick, setTick] = useState(0)
-
-  useEffect(() => {
-    const id = window.setInterval(() => setTick((value) => value + 1), 1600)
-    return () => window.clearInterval(id)
-  }, [])
-
-  const rows = useMemo(() => {
-    const base = [
-      ['01', 'NOVA', '16', '+0.000', '1:41.832', 'S2'],
-      ['02', 'ATLAS', '22', '+1.284', '1:42.107', 'S3'],
-      ['03', 'VOLT', '04', '+2.916', '1:42.446', 'PIT'],
-      ['04', 'ORION', '31', '+4.021', '1:42.913', 'S1'],
-      ['05', 'APEX', '07', '+6.447', '1:43.088', 'S2'],
-      ['06', 'LYNX', '11', '+8.105', '1:43.320', 'S3'],
-      ['07', 'MOSS', '55', '+9.830', '1:43.508', 'S1'],
-    ]
-    return base.map((row, index) => {
-      const pulse = (tick + index) % 5 === 0
-      const gap = pulse && index > 0 ? `+${(Number(row[3].slice(1)) + 0.132).toFixed(3)}` : row[3]
-      return { pos: row[0], driver: row[1], car: row[2], gap, best: row[4], sector: row[5], pulse }
-    })
-  }, [tick])
-
+function TimingPanel({ rows, status }: { rows: TelemetryRow[]; status: 'loading' | 'live' | 'fallback' }) {
   return (
     <div className="timing-panel">
-      <div className="timing-head">
-        <span>POS</span>
-        <span>DRV</span>
-        <span>GAP</span>
-        <span>BEST</span>
-        <span>STAT</span>
+      <div className="telemetry-source">
+        <span>{status === 'live' ? 'OpenF1 car_data replay' : status === 'loading' ? 'Loading OpenF1 car_data' : 'Fallback telemetry'}</span>
+        <strong>speed throttle brake rpm gear drs</strong>
       </div>
       {rows.map((row) => (
-        <div className={row.pulse ? 'timing-row pulse' : 'timing-row'} key={row.pos}>
-          <span>{row.pos}</span>
-          <strong>{row.driver}</strong>
-          <span>{row.gap}</span>
-          <span>{row.best}</span>
-          <span>{row.sector}</span>
-        </div>
+        <TelemetryTowerRow row={row} key={row.driverNumber} />
       ))}
     </div>
   )
 }
 
-function TrackMapPanel() {
+function TelemetryTowerRow({ row }: { row: TelemetryRow }) {
+  const sample = row.sample
+  const speed = Math.round(sample.speed)
+  const rpm = Math.round(sample.rpm)
+  const drsOpen = sample.drs >= 8
+  const rpmPercent = Math.min(100, Math.max(0, (rpm / 13000) * 100))
+
+  return (
+    <article className="telemetry-row" style={{ '--team': row.teamColor, '--rpm': `${rpmPercent}%` } as CSSProperties}>
+      <div className="position-cell">
+        <strong>{row.pos}</strong>
+        <span className={row.delta > 0 ? 'delta up' : row.delta < 0 ? 'delta down' : 'delta'}>{row.delta > 0 ? `+${row.delta}` : row.delta}</span>
+      </div>
+      <div className="driver-cell">
+        <strong>{row.code}</strong>
+        <span>{row.driverNumber}</span>
+      </div>
+      <div className={drsOpen ? 'drs-cell open' : 'drs-cell'}>
+        <span>DRS</span>
+        <strong>{drsOpen ? 'OPEN' : 'OFF'}</strong>
+      </div>
+      <div className="rpm-cell">
+        <div className="mini-rpm">
+          <strong>{sample.n_gear}</strong>
+        </div>
+        <span>{rpm}</span>
+      </div>
+      <div className="speed-cell">
+        <strong>{speed}</strong>
+        <span>km/h</span>
+      </div>
+      <div className="lap-cell">
+        <span>BEST</span>
+        <strong>{row.best}</strong>
+        <span>LAST {row.last}</span>
+      </div>
+      <div className="gap-cell">
+        <span>{row.gap}</span>
+        <strong>{row.interval}</strong>
+      </div>
+      <div className="sector-cells">
+        {row.sectors.map((sector, index) => (
+          <i className={sector} key={`${row.driverNumber}-${index}`}></i>
+        ))}
+      </div>
+      <div className={`tyre tyre-${row.compound.toLowerCase()}`}>
+        <strong>{row.compound}</strong>
+        <span>{row.tyreAge}</span>
+      </div>
+    </article>
+  )
+}
+
+function TrackMapPanel({ rows }: { rows: TelemetryRow[] }) {
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
@@ -837,12 +1092,15 @@ function TrackMapPanel() {
     return () => window.clearInterval(id)
   }, [])
 
-  const cars = [
-    { id: '16', x: 28 + (tick % 8) * 2, y: 31, color: '#00d084' },
-    { id: '22', x: 61, y: 23 + (tick % 6) * 2, color: '#36a3ff' },
-    { id: '04', x: 74 - (tick % 5) * 2, y: 64, color: '#f5c84b' },
-    { id: '31', x: 39, y: 76 - (tick % 7) * 2, color: '#ed1c24' },
-  ]
+  const cars = rows.slice(0, 4).map((row, index) => {
+    const points = [
+      { x: 28 + (tick % 8) * 2, y: 31 },
+      { x: 61, y: 23 + (tick % 6) * 2 },
+      { x: 74 - (tick % 5) * 2, y: 64 },
+      { x: 39, y: 76 - (tick % 7) * 2 },
+    ]
+    return { id: String(row.driverNumber), color: row.teamColor, ...points[index] }
+  })
 
   return (
     <div className="track-panel">
@@ -872,12 +1130,12 @@ function TrackMapPanel() {
 
 function RaceControlPanel() {
   const messages = [
-    ['46', 'YELLOW', 'Sector 2 briefly under local yellow'],
-    ['45', 'INFO', 'Car 04 noted for track limits'],
+    ['46', 'YELLOW', 'Sector 2 local yellow'],
+    ['45', 'INFO', 'Car 55 reports rear degradation'],
     ['43', 'DRS', 'DRS enabled'],
-    ['42', 'PIT', 'Car 22 pit exit clear'],
-    ['40', 'RADIO', 'Car 16 reports front-left vibration'],
-    ['38', 'INFO', 'Weather risk remains low'],
+    ['42', 'PIT', 'Car 44 pit exit clear'],
+    ['40', 'RADIO', 'Car 4 told to hold DRS gap'],
+    ['38', 'INFO', 'Singapore 2023 replay data'],
   ]
 
   return (
@@ -907,9 +1165,9 @@ function RaceTracePanel() {
         <path className="trace-line blue" d="M24 151 C68 139 96 132 125 119 C158 102 183 115 214 91 C254 63 286 80 340 58" />
       </svg>
       <div className="trace-legend">
-        <span>NOVA</span>
-        <span>ATLAS</span>
-        <span>VOLT</span>
+        <span>SAI</span>
+        <span>NOR</span>
+        <span>HAM</span>
       </div>
     </div>
   )
