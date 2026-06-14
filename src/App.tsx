@@ -1,118 +1,170 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties, ComponentType } from 'react'
 import Hls from 'hls.js'
 import {
-  Activity,
   BadgePlus,
-  Columns3,
+  Cast,
+  Check,
+  ChevronDown,
+  Clock3,
   Copy,
   Focus,
   Grid2X2,
   LayoutDashboard,
+  ListVideo,
   Maximize2,
-  MonitorPlay,
   Pause,
+  Pin,
   Play,
+  Radio,
   RotateCcw,
   Rows3,
   Save,
+  Search,
   Settings2,
+  TimerReset,
   Trash2,
   Volume2,
   VolumeX,
+  X,
 } from 'lucide-react'
 import './App.css'
 
-type SourceKind = 'hls' | 'video' | 'iframe' | 'timing' | 'demo' | 'map'
-type LayoutMode = 'auto' | 'quad' | 'six' | 'stack' | 'focus'
+type FeedKind = 'demo-race' | 'demo-onboard' | 'hls' | 'video' | 'iframe' | 'timing' | 'track-map' | 'race-control' | 'race-trace'
+type LayoutMode = 'race' | 'grid' | 'six' | 'focus' | 'stack'
 
-type ViewerSource = {
+type FeedSource = {
   id: string
   title: string
-  label: string
-  kind: SourceKind
+  group: string
+  kind: FeedKind
   url: string
-  accent: string
+  color: string
   active: boolean
   locked?: boolean
+  driver?: string
+  car?: string
 }
 
 type SourceDraft = {
   title: string
-  label: string
-  kind: SourceKind
+  group: string
+  kind: FeedKind
   url: string
-  accent: string
+  color: string
+  driver: string
+  car: string
 }
 
-const storageKey = 'pitwall-web.sources.v1'
-const layoutKey = 'pitwall-web.layout.v1'
+type LayoutOption = {
+  id: LayoutMode
+  title: string
+  icon: ComponentType<{ size?: number; strokeWidth?: number }>
+}
 
-const demoSources: ViewerSource[] = [
+const storageKey = 'pitwall-web.sources.v2'
+const layoutKey = 'pitwall-web.layout.v2'
+
+const defaultFeeds: FeedSource[] = [
   {
-    id: 'world-feed',
-    title: 'Main Feed',
-    label: 'WORLD',
-    kind: 'demo',
+    id: 'race-feed',
+    title: 'Race Feed',
+    group: 'International',
+    kind: 'demo-race',
     url: '',
-    accent: '#f97316',
+    color: '#ed1c24',
     active: true,
+    locked: true,
   },
   {
-    id: 'onboard-alpha',
-    title: 'Onboard A',
-    label: 'CAM 12',
-    kind: 'demo',
+    id: 'onboard-nova',
+    title: 'L. Nova Onboard',
+    group: 'Onboards',
+    kind: 'demo-onboard',
     url: '',
-    accent: '#22c55e',
+    color: '#00d084',
     active: true,
+    driver: 'NOVA',
+    car: '16',
   },
   {
-    id: 'timing',
-    title: 'Timing',
-    label: 'DATA',
+    id: 'onboard-atlas',
+    title: 'K. Atlas Onboard',
+    group: 'Onboards',
+    kind: 'demo-onboard',
+    url: '',
+    color: '#36a3ff',
+    active: true,
+    driver: 'ATLAS',
+    car: '22',
+  },
+  {
+    id: 'live-timing',
+    title: 'Live Timing',
+    group: 'Data',
     kind: 'timing',
     url: '',
-    accent: '#38bdf8',
+    color: '#f5c84b',
     active: true,
     locked: true,
   },
   {
     id: 'track-map',
     title: 'Track Map',
-    label: 'MAP',
-    kind: 'map',
+    group: 'Data',
+    kind: 'track-map',
     url: '',
-    accent: '#eab308',
+    color: '#9b7cff',
     active: true,
+  },
+  {
+    id: 'race-control',
+    title: 'Race Control',
+    group: 'Data',
+    kind: 'race-control',
+    url: '',
+    color: '#ff8a3d',
+    active: true,
+  },
+  {
+    id: 'race-trace',
+    title: 'Race Trace',
+    group: 'Analysis',
+    kind: 'race-trace',
+    url: '',
+    color: '#19d3da',
+    active: false,
   },
 ]
 
 const emptyDraft: SourceDraft = {
   title: '',
-  label: 'LIVE',
+  group: 'Custom',
   kind: 'hls',
   url: '',
-  accent: '#f97316',
+  color: '#ed1c24',
+  driver: '',
+  car: '',
 }
 
-const accents = ['#f97316', '#22c55e', '#38bdf8', '#eab308', '#ef4444', '#a3e635']
-
-const layoutOptions: { id: LayoutMode; title: string; icon: typeof LayoutDashboard }[] = [
-  { id: 'auto', title: 'Auto', icon: LayoutDashboard },
-  { id: 'quad', title: '2x2', icon: Grid2X2 },
-  { id: 'six', title: '3x2', icon: Columns3 },
+const layoutOptions: LayoutOption[] = [
+  { id: 'race', title: 'Race setup', icon: LayoutDashboard },
+  { id: 'grid', title: 'Grid', icon: Grid2X2 },
+  { id: 'six', title: '6-up', icon: ListVideo },
   { id: 'stack', title: 'Stack', icon: Rows3 },
   { id: 'focus', title: 'Focus', icon: Focus },
 ]
 
+const feedColors = ['#ed1c24', '#00d084', '#36a3ff', '#f5c84b', '#9b7cff', '#ff8a3d', '#19d3da']
+
 function readSources() {
   try {
     const raw = window.localStorage.getItem(storageKey)
-    if (!raw) return demoSources
-    const parsed = JSON.parse(raw) as ViewerSource[]
-    return parsed.length > 0 ? parsed : demoSources
+    if (!raw) return defaultFeeds
+    const parsed = JSON.parse(raw) as FeedSource[]
+    return parsed.length > 0 ? parsed : defaultFeeds
   } catch {
-    return demoSources
+    return defaultFeeds
   }
 }
 
@@ -120,16 +172,23 @@ function uid() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+function sourceNeedsUrl(kind: FeedKind) {
+  return kind === 'hls' || kind === 'video' || kind === 'iframe'
+}
+
 function App() {
-  const [sources, setSources] = useState<ViewerSource[]>(readSources)
+  const [sources, setSources] = useState<FeedSource[]>(readSources)
   const [layout, setLayout] = useState<LayoutMode>(() => {
     const saved = window.localStorage.getItem(layoutKey) as LayoutMode | null
-    return saved ?? 'quad'
+    return saved ?? 'race'
   })
-  const [focusedId, setFocusedId] = useState<string>(sources.find((source) => source.active)?.id ?? sources[0]?.id ?? '')
-  const [isPlaying, setIsPlaying] = useState(true)
-  const [isMuted, setIsMuted] = useState(true)
-  const [isAddOpen, setIsAddOpen] = useState(false)
+  const [focusedId, setFocusedId] = useState(() => sources.find((source) => source.active)?.id ?? sources[0]?.id ?? '')
+  const [playing, setPlaying] = useState(true)
+  const [muted, setMuted] = useState(true)
+  const [spoilerSafe, setSpoilerSafe] = useState(false)
+  const [delay, setDelay] = useState(0)
+  const [query, setQuery] = useState('')
+  const [addOpen, setAddOpen] = useState(false)
   const [draft, setDraft] = useState<SourceDraft>(emptyDraft)
 
   const activeSources = useMemo(() => sources.filter((source) => source.active), [sources])
@@ -137,6 +196,12 @@ function App() {
     () => activeSources.find((source) => source.id === focusedId) ?? activeSources[0],
     [activeSources, focusedId],
   )
+  const visibleSources = layout === 'focus' && focusedSource ? [focusedSource] : activeSources
+  const filteredSources = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    if (!needle) return sources
+    return sources.filter((source) => `${source.title} ${source.group} ${source.driver ?? ''} ${source.car ?? ''}`.toLowerCase().includes(needle))
+  }, [query, sources])
 
   useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(sources))
@@ -146,28 +211,13 @@ function App() {
     window.localStorage.setItem(layoutKey, layout)
   }, [layout])
 
-  const gridSources = layout === 'focus' && focusedSource ? [focusedSource] : activeSources
-
-  function addSource() {
-    if (!draft.title.trim()) return
-    if (draft.kind !== 'timing' && !draft.url.trim()) return
-    const source: ViewerSource = {
-      id: uid(),
-      title: draft.title.trim(),
-      label: draft.label.trim() || draft.kind.toUpperCase(),
-      kind: draft.kind,
-      url: draft.kind === 'timing' ? '' : draft.url.trim(),
-      accent: draft.accent,
-      active: true,
-    }
-    setSources((current) => [...current, source])
-    setFocusedId(source.id)
-    setDraft(emptyDraft)
-    setIsAddOpen(false)
+  function updateSource(id: string, patch: Partial<FeedSource>) {
+    setSources((current) => current.map((source) => (source.id === id ? { ...source, ...patch } : source)))
   }
 
-  function updateSource(id: string, patch: Partial<ViewerSource>) {
-    setSources((current) => current.map((source) => (source.id === id ? { ...source, ...patch } : source)))
+  function toggleSource(source: FeedSource) {
+    updateSource(source.id, { active: !source.active })
+    if (!source.active) setFocusedId(source.id)
   }
 
   function removeSource(id: string) {
@@ -175,83 +225,140 @@ function App() {
   }
 
   function resetWorkspace() {
-    setSources(demoSources)
-    setLayout('quad')
-    setFocusedId('world-feed')
-    setIsPlaying(true)
-    setIsMuted(true)
+    setSources(defaultFeeds)
+    setLayout('race')
+    setFocusedId('race-feed')
+    setPlaying(true)
+    setMuted(true)
+    setDelay(0)
+    setSpoilerSafe(false)
   }
 
-  async function copyPreset() {
-    const payload = JSON.stringify({ sources, layout }, null, 2)
+  function applySetup(setup: 'race' | 'onboards' | 'data') {
+    if (setup === 'race') {
+      setSources((current) => current.map((source) => ({ ...source, active: source.id !== 'race-trace' })))
+      setLayout('race')
+      setFocusedId('race-feed')
+      return
+    }
+    if (setup === 'onboards') {
+      setSources((current) => current.map((source) => ({ ...source, active: source.group === 'Onboards' || source.id === 'race-feed' })))
+      setLayout('grid')
+      setFocusedId('race-feed')
+      return
+    }
+    setSources((current) => current.map((source) => ({ ...source, active: source.group === 'Data' || source.id === 'race-trace' })))
+    setLayout('grid')
+    setFocusedId('live-timing')
+  }
+
+  function addSource() {
+    if (!draft.title.trim()) return
+    if (sourceNeedsUrl(draft.kind) && !draft.url.trim()) return
+
+    const source: FeedSource = {
+      id: uid(),
+      title: draft.title.trim(),
+      group: draft.group.trim() || 'Custom',
+      kind: draft.kind,
+      url: sourceNeedsUrl(draft.kind) ? draft.url.trim() : '',
+      color: draft.color,
+      active: true,
+      driver: draft.driver.trim() || undefined,
+      car: draft.car.trim() || undefined,
+    }
+    setSources((current) => [...current, source])
+    setFocusedId(source.id)
+    setDraft(emptyDraft)
+    setAddOpen(false)
+  }
+
+  async function copySetup() {
+    const payload = JSON.stringify({ sources, layout, delay, muted, spoilerSafe }, null, 2)
     await navigator.clipboard?.writeText(payload)
   }
 
   return (
-    <main className="app-shell">
-      <aside className="control-rail" aria-label="PitWall controls">
-        <header className="brand-strip">
-          <div className="mark">PW</div>
-          <div>
-            <h1>PitWall Web</h1>
-            <span>Race control</span>
-          </div>
-        </header>
-
-        <section className="session-card">
-          <div className="session-row">
-            <span>Session</span>
-            <strong>LIVE</strong>
-          </div>
+    <main className="mv-shell">
+      <header className="app-titlebar">
+        <div className="window-dots" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div className="title-cluster">
+          <strong>PitWall Web</strong>
+          <span>Multi-feed race viewer</span>
+        </div>
+        <button className="session-picker" type="button">
+          <Cast size={16} />
+          <span>Grand Prix - Race</span>
+          <ChevronDown size={15} />
+        </button>
+        <div className="title-actions">
+          <span className={spoilerSafe ? 'pill active' : 'pill'}>Spoiler safe</span>
           <SessionClock />
-          <div className="signal-strip">
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
+        </div>
+      </header>
+
+      <aside className="feed-sidebar" aria-label="Feed catalog">
+        <section className="event-card">
+          <div className="event-meta">
+            <span>LIVE SESSION</span>
+            <strong>Lap 46 / 58</strong>
+          </div>
+          <div className="event-progress">
+            <span style={{ width: '79%' }}></span>
+          </div>
+          <div className="event-grid">
+            <span>SYNC</span>
+            <strong>{delay >= 0 ? '+' : ''}{delay.toFixed(1)}s</strong>
+            <span>WINDOWS</span>
+            <strong>{activeSources.length}</strong>
           </div>
         </section>
 
-        <section className="rail-section">
-          <div className="section-head">
-            <span>Sources</span>
-            <button className="icon-button" type="button" onClick={() => setIsAddOpen(true)} aria-label="Add source">
-              <BadgePlus size={18} />
+        <section className="side-section">
+          <div className="section-title">
+            <span>Content catalog</span>
+            <button className="icon-button" type="button" onClick={() => setAddOpen(true)} aria-label="Add feed">
+              <BadgePlus size={17} />
             </button>
           </div>
-          <div className="source-list">
-            {sources.map((source) => (
-              <article
-                className={`source-item ${source.active ? 'is-active' : ''}`}
-                key={source.id}
-                style={{ '--source-accent': source.accent } as React.CSSProperties}
-              >
-                <button
-                  className="source-main"
-                  type="button"
-                  onClick={() => {
-                    updateSource(source.id, { active: !source.active })
-                    setFocusedId(source.id)
-                  }}
-                >
-                  <span className="source-dot"></span>
+          <label className="search-box">
+            <Search size={15} />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find feed, driver, data" />
+          </label>
+          <div className="feed-list">
+            {filteredSources.map((source) => (
+              <article className={source.active ? 'feed-row active' : 'feed-row'} key={source.id} style={{ '--feed-color': source.color } as CSSProperties}>
+                <button type="button" className="feed-toggle" onClick={() => toggleSource(source)} aria-label={`Toggle ${source.title}`}>
+                  <span className="feed-check">{source.active ? <Check size={12} /> : null}</span>
                   <span>
                     <strong>{source.title}</strong>
-                    <small>{source.label}</small>
+                    <small>{source.group} {source.car ? `- Car ${source.car}` : ''}</small>
                   </span>
                 </button>
-                <div className="source-actions">
-                  <button className="icon-button ghost" type="button" onClick={() => setFocusedId(source.id)} aria-label={`Focus ${source.title}`}>
-                    <Maximize2 size={15} />
+                <div className="feed-tools">
+                  <button
+                    className="mini-button"
+                    type="button"
+                    onClick={() => {
+                      setFocusedId(source.id)
+                      setLayout('focus')
+                    }}
+                    aria-label={`Focus ${source.title}`}
+                  >
+                    <Maximize2 size={14} />
                   </button>
                   <button
-                    className="icon-button ghost"
+                    className="mini-button"
                     type="button"
                     disabled={source.locked}
                     onClick={() => removeSource(source.id)}
                     aria-label={`Remove ${source.title}`}
                   >
-                    <Trash2 size={15} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </article>
@@ -259,68 +366,102 @@ function App() {
           </div>
         </section>
 
-        <section className="rail-section">
-          <div className="section-head">
-            <span>Layout</span>
-            <Settings2 size={16} />
+        <section className="side-section">
+          <div className="section-title">
+            <span>One-click setups</span>
+            <Settings2 size={15} />
           </div>
-          <div className="layout-grid">
+          <div className="setup-list">
+            <button type="button" onClick={() => applySetup('race')}>
+              <strong>Race day</strong>
+              <span>World feed + onboards + timing + map</span>
+            </button>
+            <button type="button" onClick={() => applySetup('onboards')}>
+              <strong>Onboard wall</strong>
+              <span>World feed with driver cams</span>
+            </button>
+            <button type="button" onClick={() => applySetup('data')}>
+              <strong>Data wall</strong>
+              <span>Timing, trace, control, map</span>
+            </button>
+          </div>
+        </section>
+      </aside>
+
+      <section className="viewer-stage">
+        <div className="stage-toolbar">
+          <div className="layout-tabs">
             {layoutOptions.map((option) => {
               const Icon = option.icon
               return (
                 <button
-                  className={layout === option.id ? 'layout-option selected' : 'layout-option'}
                   type="button"
+                  className={layout === option.id ? 'selected' : ''}
                   key={option.id}
                   onClick={() => setLayout(option.id)}
-                  aria-label={option.title}
                 >
-                  <Icon size={18} />
+                  <Icon size={16} />
                   <span>{option.title}</span>
                 </button>
               )
             })}
           </div>
-        </section>
-      </aside>
 
-      <section className="viewer-workspace">
-        <header className="topbar">
-          <div className="topbar-title">
-            <Activity size={18} />
-            <span>{activeSources.length} panels active</span>
-          </div>
-          <div className="global-controls">
-            <button className="toolbar-button" type="button" onClick={() => setIsPlaying((value) => !value)}>
-              {isPlaying ? <Pause size={17} /> : <Play size={17} />}
-              <span>{isPlaying ? 'Pause' : 'Play'}</span>
+          <div className="transport">
+            <button className="transport-button" type="button" onClick={() => setPlaying((value) => !value)}>
+              {playing ? <Pause size={17} /> : <Play size={17} />}
+              <span>{playing ? 'Pause all' : 'Play all'}</span>
             </button>
-            <button className="toolbar-button" type="button" onClick={() => setIsMuted((value) => !value)}>
-              {isMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
-              <span>{isMuted ? 'Muted' : 'Audio'}</span>
+            <button className="transport-button" type="button" onClick={() => setMuted((value) => !value)}>
+              {muted ? <VolumeX size={17} /> : <Volume2 size={17} />}
+              <span>{muted ? 'Muted' : 'Audio'}</span>
             </button>
-            <button className="toolbar-button" type="button" onClick={copyPreset}>
+            <button className="transport-button" type="button" onClick={() => setSpoilerSafe((value) => !value)}>
+              <TimerReset size={17} />
+              <span>Spoilers</span>
+            </button>
+            <button className="transport-button" type="button" onClick={copySetup}>
               <Copy size={17} />
-              <span>Copy</span>
+              <span>Copy setup</span>
             </button>
-            <button className="toolbar-button" type="button" onClick={resetWorkspace}>
+            <button className="transport-button" type="button" onClick={resetWorkspace}>
               <RotateCcw size={17} />
               <span>Reset</span>
             </button>
           </div>
-        </header>
+        </div>
 
-        <section className={`viewer-grid layout-${layout}`} data-count={gridSources.length}>
-          {gridSources.map((source) => (
-            <ViewerTile
+        <div className="sync-strip">
+          <span>Global sync</span>
+          <input
+            type="range"
+            min="-8"
+            max="8"
+            step="0.5"
+            value={delay}
+            onChange={(event) => setDelay(Number(event.target.value))}
+            aria-label="Global sync delay"
+          />
+          <strong>{delay >= 0 ? '+' : ''}{delay.toFixed(1)}s</strong>
+          <div className="buffer-bars" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+
+        <section className={`window-grid layout-${layout}`} data-count={visibleSources.length}>
+          {visibleSources.map((source, index) => (
+            <ViewerWindow
               key={source.id}
+              index={index}
               source={source}
-              playing={isPlaying}
-              muted={isMuted}
+              playing={playing}
+              muted={muted}
               focused={source.id === focusedSource?.id}
               onFocus={() => {
                 setFocusedId(source.id)
-                if (layout === 'focus') return
                 setLayout('focus')
               }}
             />
@@ -328,7 +469,7 @@ function App() {
         </section>
       </section>
 
-      {isAddOpen && (
+      {addOpen && (
         <div className="dialog-backdrop" role="presentation">
           <form
             className="source-dialog"
@@ -337,55 +478,71 @@ function App() {
               addSource()
             }}
           >
-            <div className="dialog-title">
-              <MonitorPlay size={20} />
-              <h2>Add panel</h2>
+            <div className="dialog-header">
+              <div>
+                <span>Add authorized feed</span>
+                <h2>New window source</h2>
+              </div>
+              <button className="icon-button" type="button" onClick={() => setAddOpen(false)} aria-label="Close">
+                <X size={18} />
+              </button>
             </div>
             <label>
               <span>Name</span>
               <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} autoFocus />
             </label>
             <label>
-              <span>Tag</span>
-              <input value={draft.label} onChange={(event) => setDraft((current) => ({ ...current, label: event.target.value }))} />
+              <span>Group</span>
+              <input value={draft.group} onChange={(event) => setDraft((current) => ({ ...current, group: event.target.value }))} />
             </label>
-            <label>
-              <span>Type</span>
-              <select
-                value={draft.kind}
-                onChange={(event) => setDraft((current) => ({ ...current, kind: event.target.value as SourceKind }))}
-              >
-                <option value="hls">HLS stream</option>
-                <option value="video">Video file</option>
-                <option value="iframe">Embed URL</option>
-                <option value="timing">Timing board</option>
-              </select>
-            </label>
-            {draft.kind !== 'timing' && (
+            <div className="dialog-grid">
+              <label>
+                <span>Type</span>
+                <select value={draft.kind} onChange={(event) => setDraft((current) => ({ ...current, kind: event.target.value as FeedKind }))}>
+                  <option value="hls">HLS stream</option>
+                  <option value="video">Video file</option>
+                  <option value="iframe">Embed URL</option>
+                  <option value="timing">Live timing</option>
+                  <option value="track-map">Track map</option>
+                  <option value="race-control">Race control</option>
+                  <option value="race-trace">Race trace</option>
+                  <option value="demo-onboard">Demo onboard</option>
+                </select>
+              </label>
+              <label>
+                <span>Car</span>
+                <input value={draft.car} onChange={(event) => setDraft((current) => ({ ...current, car: event.target.value }))} />
+              </label>
+            </div>
+            {sourceNeedsUrl(draft.kind) && (
               <label>
                 <span>URL</span>
                 <input value={draft.url} onChange={(event) => setDraft((current) => ({ ...current, url: event.target.value }))} />
               </label>
             )}
-            <div className="swatches" aria-label="Accent color">
-              {accents.map((accent) => (
+            <label>
+              <span>Driver tag</span>
+              <input value={draft.driver} onChange={(event) => setDraft((current) => ({ ...current, driver: event.target.value }))} />
+            </label>
+            <div className="swatches" aria-label="Feed color">
+              {feedColors.map((color) => (
                 <button
-                  key={accent}
                   type="button"
-                  className={draft.accent === accent ? 'swatch selected' : 'swatch'}
-                  style={{ backgroundColor: accent }}
-                  onClick={() => setDraft((current) => ({ ...current, accent }))}
-                  aria-label={accent}
+                  key={color}
+                  className={draft.color === color ? 'swatch selected' : 'swatch'}
+                  style={{ backgroundColor: color }}
+                  onClick={() => setDraft((current) => ({ ...current, color }))}
+                  aria-label={color}
                 />
               ))}
             </div>
             <div className="dialog-actions">
-              <button className="toolbar-button" type="button" onClick={() => setIsAddOpen(false)}>
+              <button className="transport-button" type="button" onClick={() => setAddOpen(false)}>
                 Cancel
               </button>
-              <button className="primary-button" type="submit">
+              <button className="save-button" type="submit">
                 <Save size={17} />
-                <span>Save</span>
+                <span>Save window</span>
               </button>
             </div>
           </form>
@@ -404,43 +561,69 @@ function SessionClock() {
   }, [])
 
   return (
-    <time className="session-clock" dateTime={now.toISOString()}>
+    <time dateTime={now.toISOString()} className="session-clock">
+      <Clock3 size={14} />
       {now.toLocaleTimeString('en-US', { hour12: false })}
     </time>
   )
 }
 
-function ViewerTile({
+function ViewerWindow({
   source,
+  index,
   playing,
   muted,
   focused,
   onFocus,
 }: {
-  source: ViewerSource
+  source: FeedSource
+  index: number
   playing: boolean
   muted: boolean
   focused: boolean
   onFocus: () => void
 }) {
   return (
-    <article className={`viewer-tile ${focused ? 'is-focused' : ''}`} style={{ '--source-accent': source.accent } as React.CSSProperties}>
-      <div className="tile-head">
-        <div>
-          <span className="tile-label">{source.label}</span>
-          <h2>{source.title}</h2>
+    <article
+      className={`viewer-window ${focused ? 'focused' : ''} ${source.id === 'race-feed' ? 'primary-feed' : ''}`}
+      style={{ '--feed-color': source.color } as CSSProperties}
+      data-index={index}
+    >
+      <header className="window-bar">
+        <div className="window-identity">
+          <div className="window-controls" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div>
+            <strong>{source.title}</strong>
+            <span>{source.group}{source.car ? ` - Car ${source.car}` : ''}</span>
+          </div>
         </div>
-        <button className="icon-button tile-focus" type="button" onClick={onFocus} aria-label={`Focus ${source.title}`}>
-          <Maximize2 size={16} />
-        </button>
-      </div>
-      <div className="tile-body">
-        {source.kind === 'demo' ? (
-          <DemoFeed source={source} />
-        ) : source.kind === 'map' ? (
-          <TrackMap />
+        <div className="window-actions">
+          {source.driver ? <span className="driver-badge">{source.driver}</span> : null}
+          <button className="mini-button" type="button" aria-label={`Pin ${source.title}`}>
+            <Pin size={13} />
+          </button>
+          <button className="mini-button" type="button" onClick={onFocus} aria-label={`Focus ${source.title}`}>
+            <Maximize2 size={14} />
+          </button>
+        </div>
+      </header>
+      <div className="window-body">
+        {source.kind === 'demo-race' ? (
+          <RaceFeed />
+        ) : source.kind === 'demo-onboard' ? (
+          <OnboardFeed source={source} />
         ) : source.kind === 'timing' ? (
-          <TimingBoard />
+          <TimingPanel />
+        ) : source.kind === 'track-map' ? (
+          <TrackMapPanel />
+        ) : source.kind === 'race-control' ? (
+          <RaceControlPanel />
+        ) : source.kind === 'race-trace' ? (
+          <RaceTracePanel />
         ) : source.kind === 'iframe' ? (
           <iframe src={source.url} title={source.title} loading="lazy" referrerPolicy="no-referrer" />
         ) : (
@@ -451,99 +634,101 @@ function ViewerTile({
   )
 }
 
-function DemoFeed({ source }: { source: ViewerSource }) {
+function RaceFeed() {
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
-    const id = window.setInterval(() => setTick((value) => value + 1), 900)
+    const id = window.setInterval(() => setTick((value) => value + 1), 1000)
     return () => window.clearInterval(id)
   }, [])
 
-  const telemetry = useMemo(() => {
-    const phase = tick % 12
-    return {
-      speed: source.id === 'world-feed' ? 276 + phase * 3 : 231 + phase * 5,
-      gear: source.id === 'world-feed' ? 7 : 5 + (phase % 2),
-      gap: source.id === 'world-feed' ? '+0.000' : `+${(1.41 + phase / 100).toFixed(2)}`,
-      sector: ['S1', 'S2', 'S3'][phase % 3],
-    }
-  }, [source.id, tick])
+  const lap = 46 + Math.floor((tick % 24) / 12)
+  const phase = tick % 12
 
   return (
-    <div className={`demo-feed ${source.id === 'world-feed' ? 'wide-shot' : 'cockpit-shot'}`}>
-      <div className="track-horizon">
-        <span></span>
-        <span></span>
+    <div className="broadcast-feed">
+      <div className="video-noise"></div>
+      <div className="broadcast-track">
+        <span className="grandstand"></span>
+        <span className="runoff left"></span>
+        <span className="runoff right"></span>
+        <span className="race-line"></span>
+        <span className="lead-car"></span>
+        <span className="chase-car"></span>
       </div>
-      <div className="track-surface">
-        <div className="kerb left"></div>
-        <div className="lane-grid"></div>
-        <div className="racing-line"></div>
-        <div className="car-shadow"></div>
-        <div className="apex-marker"></div>
+      <div className="feed-bug">
+        <strong>LIVE</strong>
+        <span>Race feed</span>
       </div>
-      <div className="feed-hud">
+      <div className="lower-third">
         <div>
-          <span>{telemetry.sector}</span>
-          <strong>{telemetry.speed}</strong>
-          <small>KM/H</small>
+          <span>Leader</span>
+          <strong>NOVA</strong>
         </div>
         <div>
+          <span>Lap</span>
+          <strong>{lap}/58</strong>
+        </div>
+        <div>
+          <span>Gap</span>
+          <strong>+{(1.214 + phase / 100).toFixed(3)}</strong>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function OnboardFeed({ source }: { source: FeedSource }) {
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((value) => value + 1), 800)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const phase = tick % 18
+  const speed = source.id === 'onboard-atlas' ? 221 + phase * 4 : 246 + phase * 3
+  const gear = source.id === 'onboard-atlas' ? 5 + (phase % 2) : 6 + (phase % 2)
+  const throttle = Math.min(96, 68 + phase * 2)
+  const brake = phase > 12 ? (phase - 12) * 12 : 0
+
+  return (
+    <div className="onboard-feed">
+      <div className="cockpit-view">
+        <span className="halo"></span>
+        <span className="road"></span>
+        <span className="apex-light"></span>
+        <span className="wheel"></span>
+      </div>
+      <div className="driver-tag">
+        <strong>{source.driver ?? 'DRIVER'}</strong>
+        <span>CAR {source.car ?? '--'}</span>
+      </div>
+      <div className="speed-overlay">
+        <div className="speed-ring" style={{ '--speed': `${Math.min(312, speed) / 3.12}%` } as CSSProperties}>
+          <strong>{speed}</strong>
+          <span>km/h</span>
+        </div>
+        <div className="gear-box">
           <span>GEAR</span>
-          <strong>{telemetry.gear}</strong>
-          <small>{telemetry.gap}</small>
+          <strong>{gear}</strong>
         </div>
       </div>
-    </div>
-  )
-}
-
-function TrackMap() {
-  const [tick, setTick] = useState(0)
-
-  useEffect(() => {
-    const id = window.setInterval(() => setTick((value) => value + 1), 1200)
-    return () => window.clearInterval(id)
-  }, [])
-
-  const cars = useMemo(
-    () => [
-      { id: '01', x: 26 + (tick % 6) * 2, y: 34, color: '#f97316' },
-      { id: '02', x: 55, y: 23 + (tick % 5) * 2, color: '#22c55e' },
-      { id: '03', x: 70 - (tick % 4) * 2, y: 62, color: '#38bdf8' },
-      { id: '04', x: 42, y: 72 - (tick % 6) * 2, color: '#eab308' },
-    ],
-    [tick],
-  )
-
-  return (
-    <div className="track-map-panel">
-      <svg viewBox="0 0 100 100" role="img" aria-label="Demo track map">
-        <path className="map-grid-line" d="M10 18 H90 M10 38 H90 M10 58 H90 M10 78 H90 M20 8 V92 M40 8 V92 M60 8 V92 M80 8 V92" />
-        <path className="sector sector-one" d="M21 55 C11 34 26 15 49 17 C74 19 85 29 82 45" />
-        <path className="sector sector-two" d="M82 45 C78 64 65 79 43 80" />
-        <path className="sector sector-three" d="M43 80 C20 80 13 66 21 55" />
-        <path className="pit-lane" d="M25 61 C38 69 55 68 68 57" />
-        {cars.map((car) => (
-          <g key={car.id} transform={`translate(${car.x} ${car.y})`}>
-            <circle r="2.4" fill={car.color} />
-            <text x="4" y="3">
-              {car.id}
-            </text>
-          </g>
-        ))}
-      </svg>
-      <div className="map-legend">
-        <span>S1</span>
-        <span>S2</span>
-        <span>S3</span>
-        <strong>PIT +14.2</strong>
+      <div className="pedal-stack">
+        <label>
+          <span>THR</span>
+          <i style={{ width: `${throttle}%` }}></i>
+        </label>
+        <label>
+          <span>BRK</span>
+          <i style={{ width: `${brake}%` }}></i>
+        </label>
       </div>
     </div>
   )
 }
 
-function StreamPlayer({ source, playing, muted }: { source: ViewerSource; playing: boolean; muted: boolean }) {
+function StreamPlayer({ source, playing, muted }: { source: FeedSource; playing: boolean; muted: boolean }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [status, setStatus] = useState('READY')
 
@@ -552,27 +737,27 @@ function StreamPlayer({ source, playing, muted }: { source: ViewerSource; playin
     if (!video) return
 
     let hls: Hls | null = null
-    const handleLoadedMetadata = () => setStatus('LIVE')
+    const markReady = () => setStatus('LIVE')
     queueMicrotask(() => setStatus('TUNING'))
 
     if (source.kind === 'hls' && Hls.isSupported()) {
       hls = new Hls({ lowLatencyMode: true, backBufferLength: 30 })
       hls.loadSource(source.url)
       hls.attachMedia(video)
-      hls.on(Hls.Events.MANIFEST_PARSED, () => setStatus('LIVE'))
+      hls.on(Hls.Events.MANIFEST_PARSED, markReady)
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (data.fatal) setStatus('ERROR')
       })
     } else {
       video.src = source.url
-      video.addEventListener('loadedmetadata', handleLoadedMetadata)
-      video.addEventListener('canplay', handleLoadedMetadata, { once: true })
+      video.addEventListener('loadedmetadata', markReady)
+      video.addEventListener('canplay', markReady, { once: true })
     }
 
     return () => {
       hls?.destroy()
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata)
-      video.removeEventListener('canplay', handleLoadedMetadata)
+      video.removeEventListener('loadedmetadata', markReady)
+      video.removeEventListener('canplay', markReady)
       video.removeAttribute('src')
       video.load()
     }
@@ -590,14 +775,14 @@ function StreamPlayer({ source, playing, muted }: { source: ViewerSource; playin
   }, [playing, muted])
 
   return (
-    <>
+    <div className="stream-player">
       <video ref={videoRef} playsInline muted={muted} controls={false} preload="auto" />
-      <div className="stream-status">{status}</div>
-    </>
+      <span className="stream-state">{status}</span>
+    </div>
   )
 }
 
-function TimingBoard() {
+function TimingPanel() {
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
@@ -607,44 +792,125 @@ function TimingBoard() {
 
   const rows = useMemo(() => {
     const base = [
-      ['01', 'NOVA', '+0.000', '1:41.832', 'S2'],
-      ['02', 'ATLAS', '+1.284', '1:42.107', 'S3'],
-      ['03', 'VOLT', '+2.916', '1:42.446', 'PIT'],
-      ['04', 'ORION', '+4.021', '1:42.913', 'S1'],
-      ['05', 'APEX', '+6.447', '1:43.088', 'S2'],
-      ['06', 'LYNX', '+8.105', '1:43.320', 'S3'],
+      ['01', 'NOVA', '16', '+0.000', '1:41.832', 'S2'],
+      ['02', 'ATLAS', '22', '+1.284', '1:42.107', 'S3'],
+      ['03', 'VOLT', '04', '+2.916', '1:42.446', 'PIT'],
+      ['04', 'ORION', '31', '+4.021', '1:42.913', 'S1'],
+      ['05', 'APEX', '07', '+6.447', '1:43.088', 'S2'],
+      ['06', 'LYNX', '11', '+8.105', '1:43.320', 'S3'],
+      ['07', 'MOSS', '55', '+9.830', '1:43.508', 'S1'],
     ]
     return base.map((row, index) => {
       const pulse = (tick + index) % 5 === 0
-      return {
-        position: row[0],
-        driver: row[1],
-        gap: pulse && index > 0 ? `+${(Number(row[2].slice(1)) + 0.132).toFixed(3)}` : row[2],
-        lap: row[3],
-        sector: row[4],
-        pulse,
-      }
+      const gap = pulse && index > 0 ? `+${(Number(row[3].slice(1)) + 0.132).toFixed(3)}` : row[3]
+      return { pos: row[0], driver: row[1], car: row[2], gap, best: row[4], sector: row[5], pulse }
     })
   }, [tick])
 
   return (
-    <div className="timing-board">
+    <div className="timing-panel">
       <div className="timing-head">
         <span>POS</span>
-        <span>CAR</span>
+        <span>DRV</span>
         <span>GAP</span>
         <span>BEST</span>
         <span>STAT</span>
       </div>
       {rows.map((row) => (
-        <div className={`timing-row ${row.pulse ? 'pulse' : ''}`} key={row.position}>
-          <span>{row.position}</span>
+        <div className={row.pulse ? 'timing-row pulse' : 'timing-row'} key={row.pos}>
+          <span>{row.pos}</span>
           <strong>{row.driver}</strong>
           <span>{row.gap}</span>
-          <span>{row.lap}</span>
+          <span>{row.best}</span>
           <span>{row.sector}</span>
         </div>
       ))}
+    </div>
+  )
+}
+
+function TrackMapPanel() {
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((value) => value + 1), 1200)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const cars = [
+    { id: '16', x: 28 + (tick % 8) * 2, y: 31, color: '#00d084' },
+    { id: '22', x: 61, y: 23 + (tick % 6) * 2, color: '#36a3ff' },
+    { id: '04', x: 74 - (tick % 5) * 2, y: 64, color: '#f5c84b' },
+    { id: '31', x: 39, y: 76 - (tick % 7) * 2, color: '#ed1c24' },
+  ]
+
+  return (
+    <div className="track-panel">
+      <svg viewBox="0 0 100 100" role="img" aria-label="Demo track map">
+        <path className="map-grid" d="M8 18 H92 M8 38 H92 M8 58 H92 M8 78 H92 M20 8 V92 M40 8 V92 M60 8 V92 M80 8 V92" />
+        <path className="sector-a" d="M21 55 C11 34 26 15 49 17 C74 19 85 29 82 45" />
+        <path className="sector-b" d="M82 45 C78 64 65 79 43 80" />
+        <path className="sector-c" d="M43 80 C20 80 13 66 21 55" />
+        <path className="pit-line" d="M26 61 C39 69 55 68 68 57" />
+        {cars.map((car) => (
+          <g key={car.id} transform={`translate(${car.x} ${car.y})`}>
+            <circle r="2.4" fill={car.color} />
+            <text x="4" y="3">
+              {car.id}
+            </text>
+          </g>
+        ))}
+      </svg>
+      <div className="map-callouts">
+        <span>DRS 1</span>
+        <span>DRS 2</span>
+        <strong>PIT +14.2</strong>
+      </div>
+    </div>
+  )
+}
+
+function RaceControlPanel() {
+  const messages = [
+    ['46', 'YELLOW', 'Sector 2 briefly under local yellow'],
+    ['45', 'INFO', 'Car 04 noted for track limits'],
+    ['43', 'DRS', 'DRS enabled'],
+    ['42', 'PIT', 'Car 22 pit exit clear'],
+    ['40', 'RADIO', 'Car 16 reports front-left vibration'],
+    ['38', 'INFO', 'Weather risk remains low'],
+  ]
+
+  return (
+    <div className="race-control-panel">
+      <div className="radio-header">
+        <Radio size={16} />
+        <span>Race control and radio transcript</span>
+      </div>
+      {messages.map((message) => (
+        <div className="control-message" key={`${message[0]}-${message[1]}`}>
+          <span>L{message[0]}</span>
+          <strong>{message[1]}</strong>
+          <p>{message[2]}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function RaceTracePanel() {
+  return (
+    <div className="race-trace-panel">
+      <svg viewBox="0 0 360 180" role="img" aria-label="Race trace">
+        <path className="trace-grid" d="M24 30 H340 M24 70 H340 M24 110 H340 M24 150 H340 M80 20 V160 M140 20 V160 M200 20 V160 M260 20 V160 M320 20 V160" />
+        <path className="trace-line red" d="M24 136 C60 114 84 102 114 86 C146 69 172 76 201 61 C238 42 276 51 340 31" />
+        <path className="trace-line green" d="M24 146 C62 130 88 121 120 106 C148 92 178 98 206 78 C237 58 286 63 340 44" />
+        <path className="trace-line blue" d="M24 151 C68 139 96 132 125 119 C158 102 183 115 214 91 C254 63 286 80 340 58" />
+      </svg>
+      <div className="trace-legend">
+        <span>NOVA</span>
+        <span>ATLAS</span>
+        <span>VOLT</span>
+      </div>
     </div>
   )
 }
