@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import './App.css'
 
-type SourceKind = 'hls' | 'video' | 'iframe' | 'timing'
+type SourceKind = 'hls' | 'video' | 'iframe' | 'timing' | 'demo' | 'map'
 type LayoutMode = 'auto' | 'quad' | 'six' | 'stack' | 'focus'
 
 type ViewerSource = {
@@ -51,9 +51,9 @@ const demoSources: ViewerSource[] = [
   {
     id: 'world-feed',
     title: 'Main Feed',
-    label: 'HLS',
-    kind: 'hls',
-    url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+    label: 'WORLD',
+    kind: 'demo',
+    url: '',
     accent: '#f97316',
     active: true,
   },
@@ -61,8 +61,8 @@ const demoSources: ViewerSource[] = [
     id: 'onboard-alpha',
     title: 'Onboard A',
     label: 'CAM 12',
-    kind: 'hls',
-    url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+    kind: 'demo',
+    url: '',
     accent: '#22c55e',
     active: true,
   },
@@ -80,8 +80,8 @@ const demoSources: ViewerSource[] = [
     id: 'track-map',
     title: 'Track Map',
     label: 'MAP',
-    kind: 'iframe',
-    url: 'https://www.openstreetmap.org/export/embed.html?bbox=4.3105%2C50.4312%2C4.3545%2C50.4548&layer=mapnik',
+    kind: 'map',
+    url: '',
     accent: '#eab308',
     active: true,
   },
@@ -435,7 +435,11 @@ function ViewerTile({
         </button>
       </div>
       <div className="tile-body">
-        {source.kind === 'timing' ? (
+        {source.kind === 'demo' ? (
+          <DemoFeed source={source} />
+        ) : source.kind === 'map' ? (
+          <TrackMap />
+        ) : source.kind === 'timing' ? (
           <TimingBoard />
         ) : source.kind === 'iframe' ? (
           <iframe src={source.url} title={source.title} loading="lazy" referrerPolicy="no-referrer" />
@@ -444,6 +448,98 @@ function ViewerTile({
         )}
       </div>
     </article>
+  )
+}
+
+function DemoFeed({ source }: { source: ViewerSource }) {
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((value) => value + 1), 900)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const telemetry = useMemo(() => {
+    const phase = tick % 12
+    return {
+      speed: source.id === 'world-feed' ? 276 + phase * 3 : 231 + phase * 5,
+      gear: source.id === 'world-feed' ? 7 : 5 + (phase % 2),
+      gap: source.id === 'world-feed' ? '+0.000' : `+${(1.41 + phase / 100).toFixed(2)}`,
+      sector: ['S1', 'S2', 'S3'][phase % 3],
+    }
+  }, [source.id, tick])
+
+  return (
+    <div className={`demo-feed ${source.id === 'world-feed' ? 'wide-shot' : 'cockpit-shot'}`}>
+      <div className="track-horizon">
+        <span></span>
+        <span></span>
+      </div>
+      <div className="track-surface">
+        <div className="kerb left"></div>
+        <div className="lane-grid"></div>
+        <div className="racing-line"></div>
+        <div className="car-shadow"></div>
+        <div className="apex-marker"></div>
+      </div>
+      <div className="feed-hud">
+        <div>
+          <span>{telemetry.sector}</span>
+          <strong>{telemetry.speed}</strong>
+          <small>KM/H</small>
+        </div>
+        <div>
+          <span>GEAR</span>
+          <strong>{telemetry.gear}</strong>
+          <small>{telemetry.gap}</small>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TrackMap() {
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((value) => value + 1), 1200)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const cars = useMemo(
+    () => [
+      { id: '01', x: 26 + (tick % 6) * 2, y: 34, color: '#f97316' },
+      { id: '02', x: 55, y: 23 + (tick % 5) * 2, color: '#22c55e' },
+      { id: '03', x: 70 - (tick % 4) * 2, y: 62, color: '#38bdf8' },
+      { id: '04', x: 42, y: 72 - (tick % 6) * 2, color: '#eab308' },
+    ],
+    [tick],
+  )
+
+  return (
+    <div className="track-map-panel">
+      <svg viewBox="0 0 100 100" role="img" aria-label="Demo track map">
+        <path className="map-grid-line" d="M10 18 H90 M10 38 H90 M10 58 H90 M10 78 H90 M20 8 V92 M40 8 V92 M60 8 V92 M80 8 V92" />
+        <path className="sector sector-one" d="M21 55 C11 34 26 15 49 17 C74 19 85 29 82 45" />
+        <path className="sector sector-two" d="M82 45 C78 64 65 79 43 80" />
+        <path className="sector sector-three" d="M43 80 C20 80 13 66 21 55" />
+        <path className="pit-lane" d="M25 61 C38 69 55 68 68 57" />
+        {cars.map((car) => (
+          <g key={car.id} transform={`translate(${car.x} ${car.y})`}>
+            <circle r="2.4" fill={car.color} />
+            <text x="4" y="3">
+              {car.id}
+            </text>
+          </g>
+        ))}
+      </svg>
+      <div className="map-legend">
+        <span>S1</span>
+        <span>S2</span>
+        <span>S3</span>
+        <strong>PIT +14.2</strong>
+      </div>
+    </div>
   )
 }
 
@@ -495,7 +591,7 @@ function StreamPlayer({ source, playing, muted }: { source: ViewerSource; playin
 
   return (
     <>
-      <video ref={videoRef} playsInline muted={muted} controls={false} />
+      <video ref={videoRef} playsInline muted={muted} controls={false} preload="auto" />
       <div className="stream-status">{status}</div>
     </>
   )
